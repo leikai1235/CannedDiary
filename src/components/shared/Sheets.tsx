@@ -15,7 +15,7 @@ export const MOOD_OPTIONS: {
 }[] = [
   { value: "happy", label: "开心", color: "#FFD700", face: "m-happy" },
   { value: "fulfilled", label: "充实", color: "#FFD700", face: "m-laugh" },
-  { value: "smitten", label: "动心", color: "#7CCBFF", face: "m-love" },
+  { value: "smitten", label: "满足", color: "#7CCBFF", face: "m-love" },
   { value: "angry", label: "生气", color: "#FF5C5C", face: "m-angry" },
   { value: "sad", label: "难过", color: "#B5E2FF", face: "m-cry" },
   { value: "excited", label: "惊喜", color: "#A9DF51", face: "m-surprise" },

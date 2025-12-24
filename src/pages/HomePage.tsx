@@ -347,7 +347,7 @@ const HomePage: React.FC = () => {
 
       {isGeneratingSurprise && (
         <div className="fixed inset-0 z-[100] bg-[#FFFDF5] flex items-center justify-center p-10 animate-in fade-in duration-500 max-w-md mx-auto">
-          <LoadingScreen message="惊喜罐头打开中……" />
+          <LoadingScreen message="惊喜罐头打开中……" imageType="surprise-opening" />
         </div>
       )}
     </div>

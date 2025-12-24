@@ -126,7 +126,7 @@ const Layout: React.FC = () => {
 
       {isSealing && (
         <div className="fixed inset-0 z-[100] bg-[#FFFDF5] flex items-center justify-center p-10 animate-in fade-in duration-500 max-w-md mx-auto">
-          <LoadingScreen message="罐头制作中……" />
+          <LoadingScreen message="罐头制作中……" imageType="creating" />
         </div>
       )}
 

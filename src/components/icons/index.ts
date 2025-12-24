@@ -3,7 +3,8 @@
  */
 
 // Loading 组件
-export { SpinningCan, LoadingScreen } from './Loading';
+export { SpinningCan, LoadingScreen, LoadingImages } from './Loading';
+export type { LoadingImageType } from './Loading';
 
 // 导航图标
 export { DiaryIcon } from './DiaryIcon';

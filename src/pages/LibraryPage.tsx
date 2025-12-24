@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { MATERIAL_CATEGORIES } from "../constants";
+import { LoadingImages } from "../components/icons";
 import cannedIpUrl from "../assets/canned-ip.svg";
 import { useDiary } from "../contexts/DiaryContext";
 
@@ -108,8 +109,8 @@ const LibraryPage: React.FC = () => {
         {/* 加载中状态 */}
         {loadingMaterials && (
           <div className="flex flex-col items-center justify-center py-8">
-            <div className="animate-float">
-              <img src={cannedIpUrl} width={60} height={68} alt="" />
+            <div className="animate-bounce-gentle">
+              <img src={LoadingImages.searching} width={100} height={100} alt="" className="object-contain" />
             </div>
             <p className="text-gray-400 font-bold text-sm mt-3">
               正在翻找罐头……

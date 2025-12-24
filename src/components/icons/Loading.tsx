@@ -4,6 +4,20 @@
 
 import React from 'react';
 
+// 导入加载图片
+import creatingImg from '../../assets/loading/creating.png';
+import searchingImg from '../../assets/loading/searching.png';
+import surpriseOpeningImg from '../../assets/loading/surprise-opening.png';
+
+// 加载图片类型映射
+export const LoadingImages = {
+  creating: creatingImg,
+  searching: searchingImg,
+  'surprise-opening': surpriseOpeningImg,
+} as const;
+
+export type LoadingImageType = keyof typeof LoadingImages;
+
 export const SpinningCan = ({ size = 80 }: { size?: number }) => (
   <div className="relative inline-block">
     <svg
@@ -71,15 +85,54 @@ export const SpinningCan = ({ size = 80 }: { size?: number }) => (
   </div>
 );
 
+// 动态星星组件
+const AnimatedStars = () => (
+  <>
+    {/* 左上星星 */}
+    <svg className="absolute -top-2 -left-2 animate-twinkle" width="24" height="24" viewBox="0 0 24 24">
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5Z" fill="#FFC800" />
+    </svg>
+    {/* 右上星星 */}
+    <svg className="absolute -top-4 right-4 animate-twinkle [animation-delay:0.3s]" width="20" height="20" viewBox="0 0 24 24">
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5Z" fill="#58CC02" />
+    </svg>
+    {/* 右下星星 */}
+    <svg className="absolute bottom-4 -right-2 animate-twinkle [animation-delay:0.6s]" width="18" height="18" viewBox="0 0 24 24">
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5Z" fill="#1CB0F6" />
+    </svg>
+    {/* 左下星星 */}
+    <svg className="absolute bottom-0 left-0 animate-twinkle [animation-delay:0.9s]" width="16" height="16" viewBox="0 0 24 24">
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5Z" fill="#FF9500" />
+    </svg>
+    {/* 顶部小星星 */}
+    <svg className="absolute -top-6 left-1/2 -translate-x-1/2 animate-twinkle [animation-delay:0.15s]" width="14" height="14" viewBox="0 0 24 24">
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5Z" fill="#FF6B6B" />
+    </svg>
+  </>
+);
+
 export const LoadingScreen = ({
   message = "加载中",
   showDots = true,
+  imageType,
 }: {
   message?: string;
   showDots?: boolean;
+  imageType?: LoadingImageType;
 }) => (
   <div className="flex flex-col items-center justify-center gap-6">
-    <SpinningCan size={100} />
+    {imageType ? (
+      <div className="relative animate-bounce-gentle">
+        <img
+          src={LoadingImages[imageType]}
+          alt={message}
+          className="w-40 h-40 object-contain"
+        />
+        <AnimatedStars />
+      </div>
+    ) : (
+      <SpinningCan size={100} />
+    )}
     <div className="flex flex-col items-center gap-3">
       <h2 className="text-xl font-extrabold text-gray-800 tracking-tight">
         {message}

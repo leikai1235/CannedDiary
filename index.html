@@ -69,6 +69,28 @@
         .voice-bar-anim {
             animation: voice-bar 1s ease-in-out infinite;
         }
+        /* Loading 动画 */
+        @keyframes bounce-gentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+            50% { opacity: 0.4; transform: scale(0.6) rotate(15deg); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+        .animate-bounce-gentle {
+            animation: bounce-gentle 1.5s ease-in-out infinite;
+        }
+        .animate-twinkle {
+            animation: twinkle 1.2s ease-in-out infinite;
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
         ::-webkit-scrollbar {
             display: none;
         }

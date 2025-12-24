@@ -11,6 +11,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-4@20250514';
+// 是否使用 JSON Schema（某些 LLM 不支持 response_format）
+const USE_JSON_SCHEMA = process.env.USE_JSON_SCHEMA !== 'false';
 
 // 中间件
 app.use(cors());
@@ -136,8 +138,28 @@ async function generateMaterials(category, gradeLevel, count = 6) {
   const categoryPrompt = CATEGORY_PROMPTS[category] || CATEGORY_PROMPTS.literature;
   const categoryName = CATEGORY_NAMES[category] || '文学';
 
+  // JSON 格式要求（用于不支持 response_format 的 LLM）
+  const jsonFormatHint = `
+
+【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+{
+  "materials": [
+    {
+      "title": "标题",
+      "content": "内容",
+      "pinyin": "拼音",
+      "author": "作者",
+      "dynasty": "朝代",
+      "interpretation": "释义",
+      "background": "背景",
+      "usage": "用法"
+    }
+  ]
+}
+注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
   try {
-    const response = await openai.chat.completions.create({
+    const requestParams = {
       model: AI_MODEL,
       messages: [
         {
@@ -167,10 +189,14 @@ ${gradePrompt}
 - dynasty: 朝代（如适用，诗词类必须有）
 - interpretation: 现代译文/释义（通俗易懂）
 - background: 创作背景/来源故事（有趣生动）
-- usage: 写作应用/用法提示（实用具体）`
+- usage: 写作应用/用法提示（实用具体）${USE_JSON_SCHEMA ? '' : jsonFormatHint}`
         }
-      ],
-      response_format: {
+      ]
+    };
+
+    // 只有支持 JSON Schema 的 LLM 才添加 response_format
+    if (USE_JSON_SCHEMA) {
+      requestParams.response_format = {
         type: 'json_schema',
         json_schema: {
           name: 'materials_list',
@@ -201,8 +227,10 @@ ${gradePrompt}
             additionalProperties: false
           }
         }
-      }
-    });
+      };
+    }
+
+    const response = await openai.chat.completions.create(requestParams);
 
     const textOutput = response.choices[0].message.content;
     if (!textOutput) {
@@ -594,7 +622,30 @@ app.post('/api/diary-feedback', async (req, res) => {
       weather ? `孩子选择的天气是：${weatherLabel}` : ""
     ].filter(Boolean).join("\n");
 
-    const response = await openai.chat.completions.create({
+    // JSON 格式要求（用于不支持 response_format 的 LLM）
+    const diaryJsonHint = `
+
+【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+{
+  "emotion_response": "回信内容（三段，用\\n分隔）",
+  "material": {
+    "type": "literature/poetry/quote/news/encyclopedia",
+    "title": "素材标题",
+    "content": "素材内容",
+    "pinyin": "拼音",
+    "author": "作者",
+    "dynasty": "朝代",
+    "interpretation": "释义",
+    "background": "背景",
+    "usage": "用法"
+  },
+  "summary": "一句话总结",
+  "predicted_mood": "happy/calm/sad/angry/excited/fulfilled/tired/confused/warm/lonely",
+  "predicted_weather": "sunny/cloudy/overcast/lightRain/heavyRain/snowy/windy/foggy"
+}
+注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
+    const diaryRequestParams = {
       model: AI_MODEL,
       messages: [
         {
@@ -651,10 +702,14 @@ ${MATERIAL_MATCHING_GUIDE}
           content: `${userContext ? userContext + "\n\n" : ""}小朋友的日记内容：
 "${content}"
 
-请仔细阅读这篇日记，结合孩子的主题和内容，理解孩子想表达的情感和经历，然后写一封贴心的回信。记住：推荐的素材必须与日记主题内容强关联、心情和天气简单关联！`
+请仔细阅读这篇日记，结合孩子的主题和内容，理解孩子想表达的情感和经历，然后写一封贴心的回信。记住：推荐的素材必须与日记主题内容强关联、心情和天气简单关联！${USE_JSON_SCHEMA ? '' : diaryJsonHint}`
         }
-      ],
-      response_format: {
+      ]
+    };
+
+    // 只有支持 JSON Schema 的 LLM 才添加 response_format
+    if (USE_JSON_SCHEMA) {
+      diaryRequestParams.response_format = {
         type: "json_schema",
         json_schema: {
           name: "diary_feedback",
@@ -697,8 +752,10 @@ ${MATERIAL_MATCHING_GUIDE}
             additionalProperties: false
           }
         }
-      }
-    });
+      };
+    }
+
+    const response = await openai.chat.completions.create(diaryRequestParams);
 
     const textOutput = response.choices[0].message.content;
     if (!textOutput) {
@@ -741,7 +798,30 @@ app.post('/api/daily-surprise', async (req, res) => {
       upper: "深度写作话题、哲理诗词品鉴、时事热点思考、文学名著片段"
     };
 
-    const response = await openai.chat.completions.create({
+    // JSON 格式要求（用于不支持 response_format 的 LLM）
+    const surpriseJsonHint = `
+
+【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+{
+  "title": "惊喜标题（5-8字）",
+  "teaser": "神秘诱人的预告语（15-25字）",
+  "fullContent": "完整的惊喜内容（100-200字）",
+  "type": "challenge/fun-fact/creative-prompt",
+  "material": {
+    "type": "literature/poetry/quote/news/encyclopedia",
+    "title": "素材标题",
+    "content": "素材内容",
+    "pinyin": "拼音",
+    "author": "作者",
+    "dynasty": "朝代",
+    "interpretation": "释义",
+    "background": "背景",
+    "usage": "用法"
+  }
+}
+注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
+    const surpriseRequestParams = {
       model: AI_MODEL,
       messages: [
         {
@@ -782,10 +862,14 @@ ${surpriseTypes[gradeLevel]}
         },
         {
           role: "user",
-          content: "请为今天没有写日记的小朋友准备一个充满惊喜的互动内容！要有创意，要好玩，还要能启发写作灵感！记住：内容必须直接引用和讲解素材！"
+          content: `请为今天没有写日记的小朋友准备一个充满惊喜的互动内容！要有创意，要好玩，还要能启发写作灵感！记住：内容必须直接引用和讲解素材！${USE_JSON_SCHEMA ? '' : surpriseJsonHint}`
         }
-      ],
-      response_format: {
+      ]
+    };
+
+    // 只有支持 JSON Schema 的 LLM 才添加 response_format
+    if (USE_JSON_SCHEMA) {
+      surpriseRequestParams.response_format = {
         type: "json_schema",
         json_schema: {
           name: "daily_surprise",
@@ -818,8 +902,10 @@ ${surpriseTypes[gradeLevel]}
             additionalProperties: false
           }
         }
-      }
-    });
+      };
+    }
+
+    const response = await openai.chat.completions.create(surpriseRequestParams);
 
     const textOutput = response.choices[0].message.content;
     if (!textOutput) {

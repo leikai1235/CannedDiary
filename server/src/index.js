@@ -204,7 +204,11 @@ ${gradePrompt}
       }
     });
 
-    const parsed = JSON.parse(response.choices[0].message.content?.trim() || '{}');
+    const textOutput = response.choices[0].message.content;
+    if (!textOutput) {
+      throw new Error('LLM 返回空响应');
+    }
+    const parsed = parseJSONResponse(textOutput);
 
     // 为每个素材添加ID和type
     const materials = (parsed.materials || []).map((m, index) => ({
@@ -404,6 +408,139 @@ const MATERIAL_MATCHING_GUIDE = `
    - 思考/迷茫 → 推荐有哲理、启发性的素材
 `;
 
+// 健壮的 JSON 解析函数，处理 LLM 返回的各种格式问题
+function parseJSONResponse(text) {
+  if (!text || typeof text !== 'string') {
+    throw new Error('响应内容为空或格式错误');
+  }
+
+  const trimmed = text.trim();
+
+  // 1. 先尝试直接解析（理想情况）
+  try {
+    return JSON.parse(trimmed);
+  } catch (directError) {
+    console.log('[JSON Parse] 直接解析失败，尝试修复...');
+  }
+
+  // 2. 尝试修复字符串值中未转义的双引号
+  // 问题场景：LLM 返回 "看到你写下"1122"这个数字" 这样的内容
+  let fixed = trimmed;
+  try {
+    let inString = false;
+    let escapeNext = false;
+    let result = '';
+
+    for (let i = 0; i < trimmed.length; i++) {
+      const char = trimmed[i];
+      const charCode = char.charCodeAt(0);
+
+      if (escapeNext) {
+        result += char;
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        result += char;
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        if (inString) {
+          // 在字符串值内，检查这个引号是否是字符串结束
+          // 查看后面的字符（跳过所有空白字符，包括换行符！）
+          let lookAhead = i + 1;
+          while (lookAhead < trimmed.length && /\s/.test(trimmed[lookAhead])) {
+            lookAhead++;
+          }
+
+          const nextNonSpace = lookAhead < trimmed.length ? trimmed[lookAhead] : '';
+
+          // 如果后面跟着逗号、}、]、:，说明是字符串结束
+          if (nextNonSpace === ',' || nextNonSpace === '}' || nextNonSpace === ']' || nextNonSpace === ':') {
+            inString = false;
+            result += char;
+          } else {
+            // 字符串值内的引号，需要转义
+            result += '\\"';
+          }
+        } else {
+          // 不在字符串内，检查是否是字符串开始
+          // 查看前面的字符（跳过所有空白字符）
+          let lookBack = i - 1;
+          while (lookBack >= 0 && /\s/.test(trimmed[lookBack])) {
+            lookBack--;
+          }
+
+          const prevNonSpace = lookBack >= 0 ? trimmed[lookBack] : '';
+
+          // 如果前面是冒号、逗号、[、{，说明是字符串开始
+          if (prevNonSpace === ':' || prevNonSpace === ',' || prevNonSpace === '[' || prevNonSpace === '{') {
+            inString = true;
+            result += char;
+          } else {
+            result += char;
+          }
+        }
+      } else {
+        // 处理控制字符：在字符串值内，将未转义的控制字符转义
+        if (inString && charCode < 32 && charCode !== 9) {
+          if (charCode === 10) {
+            result += '\\n';
+          } else if (charCode === 13) {
+            result += '\\r';
+          } else {
+            result += '\\u' + ('0000' + charCode.toString(16)).slice(-4);
+          }
+        } else {
+          result += char;
+        }
+      }
+    }
+
+    fixed = result;
+  } catch (e) {
+    console.warn('[JSON Parse] 修复过程出错:', e.message);
+    fixed = trimmed;
+  }
+
+  // 3. 尝试解析修复后的版本
+  try {
+    const parsed = JSON.parse(fixed);
+    console.log('[JSON Parse] ✅ 成功修复并解析 JSON');
+    return parsed;
+  } catch (e) {
+    console.warn('[JSON Parse] 修复后仍无法解析:', e.message);
+  }
+
+  // 4. 尝试从 markdown 代码块中提取 JSON
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {
+      // 继续尝试
+    }
+  }
+
+  // 5. 尝试提取第一个完整的 JSON 对象
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      // 继续尝试
+    }
+  }
+
+  // 6. 所有方法都失败
+  console.error('[JSON Parse Error] 无法解析响应为 JSON');
+  console.error('[原始响应]', trimmed.substring(0, 500));
+  throw new Error(`LLM 返回的响应不是有效的 JSON 格式。响应长度: ${trimmed.length} 字符`);
+}
+
 // 心情中文映射
 const MOOD_LABELS = {
   happy: "开心", calm: "平静", sad: "难过", angry: "生气",
@@ -545,7 +682,11 @@ ${MATERIAL_MATCHING_GUIDE}
     });
 
     const textOutput = response.choices[0].message.content;
-    const result = JSON.parse(textOutput?.trim() || "{}");
+    if (!textOutput) {
+      throw new Error('LLM 返回空响应');
+    }
+    console.log('[Diary Feedback] 原始响应长度:', textOutput.length, '字符');
+    const result = parseJSONResponse(textOutput);
 
     // 为素材添加ID
     if (result.material) {
@@ -661,7 +802,12 @@ ${surpriseTypes[gradeLevel]}
       }
     });
 
-    const result = JSON.parse(response.choices[0].message.content?.trim() || "{}");
+    const textOutput = response.choices[0].message.content;
+    if (!textOutput) {
+      throw new Error('LLM 返回空响应');
+    }
+    console.log('[Daily Surprise] 原始响应长度:', textOutput.length, '字符');
+    const result = parseJSONResponse(textOutput);
 
     // 为素材添加ID
     if (result.material) {

@@ -1,0 +1,7 @@
+{
+  "name": "罐头日记 - Canned Diary",
+  "description": "一个类似多邻国风格的童趣AI日记本。通过可爱的罐头IP引导孩子记录生活，AI自动生成温暖反馈并关联作文素材。",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

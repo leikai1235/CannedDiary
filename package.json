@@ -1,0 +1,40 @@
+{
+  "name": "罐头日记---canned-diary",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:debug": "concurrently -k \"vite\" \"sleep 3 && node scripts/debug-chat.cjs console '[Merge]'\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "debug": "node scripts/debug-chat.cjs",
+    "debug:console": "node scripts/debug-chat.cjs console",
+    "debug:parts": "node scripts/debug-chat.cjs parts",
+    "chrome:debug": "open -a 'Google Chrome' --args --remote-debugging-port=9222"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^1.0.0",
+    "ai": "^4.0.0",
+    "date-fns": "^4.1.0",
+    "openai": "^6.15.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-markdown": "^9.0.1",
+    "react-router-dom": "^7.11.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
+    "sharp": "^0.34.5",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-svgr": "^4.5.0",
+    "ws": "^8.18.3"
+  }
+}

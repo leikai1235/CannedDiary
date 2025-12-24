@@ -14,6 +14,11 @@ const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-4@20250514';
 // 是否使用 JSON Schema（某些 LLM 不支持 response_format）
 const USE_JSON_SCHEMA = process.env.USE_JSON_SCHEMA !== 'false';
 
+// 启动时打印配置
+console.log('[配置] AI_MODEL:', AI_MODEL);
+console.log('[配置] USE_JSON_SCHEMA:', USE_JSON_SCHEMA);
+console.log('[配置] LITELLM_PROXY_URL:', process.env.LITELLM_PROXY_URL || '未设置');
+
 // 中间件
 app.use(cors());
 app.use(express.json());
@@ -622,6 +627,8 @@ app.post('/api/diary-feedback', async (req, res) => {
     }
 
     console.log('[Diary Feedback] gradeLevel:', gradeLevel, 'mood:', mood, 'weather:', weather);
+    console.log('[Diary Feedback] USE_JSON_SCHEMA:', USE_JSON_SCHEMA);
+    console.log('[Diary Feedback] AI_MODEL:', AI_MODEL);
 
     const gradePersona = GRADE_PERSONAS[gradeLevel] || GRADE_PERSONAS.middle;
     const moodLabel = mood ? MOOD_LABELS[mood] || mood : "";
@@ -775,6 +782,9 @@ ${MATERIAL_MATCHING_GUIDE}
       };
     }
 
+    // 调试：打印请求参数
+    console.log('[Diary Feedback] 请求参数 response_format:', diaryRequestParams.response_format ? 'YES (使用 JSON Schema)' : 'NO (纯 prompt 约束)');
+
     const response = await openai.chat.completions.create(diaryRequestParams);
 
     const textOutput = response.choices[0].message.content;
@@ -782,6 +792,7 @@ ${MATERIAL_MATCHING_GUIDE}
       throw new Error('LLM 返回空响应');
     }
     console.log('[Diary Feedback] 原始响应长度:', textOutput.length, '字符');
+    console.log('[Diary Feedback] 原始响应前200字符:', textOutput.substring(0, 200));
     const result = parseJSONResponse(textOutput);
 
     // 为素材添加ID

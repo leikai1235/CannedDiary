@@ -414,7 +414,11 @@ function parseJSONResponse(text) {
     throw new Error('响应内容为空或格式错误');
   }
 
-  const trimmed = text.trim();
+  let trimmed = text.trim();
+
+  // 0. 预处理：将中文引号替换为转义的 ASCII 双引号
+  // 中文左双引号 " (U+201C) 和右双引号 " (U+201D)
+  trimmed = trimmed.replace(/[""]/g, '\\"');
 
   // 1. 先尝试直接解析（理想情况）
   try {
@@ -423,8 +427,7 @@ function parseJSONResponse(text) {
     console.log('[JSON Parse] 直接解析失败，尝试修复...');
   }
 
-  // 2. 尝试修复字符串值中未转义的双引号
-  // 问题场景：LLM 返回 "看到你写下"1122"这个数字" 这样的内容
+  // 2. 尝试修复字符串值中未转义的 ASCII 双引号
   let fixed = trimmed;
   try {
     let inString = false;
@@ -458,8 +461,14 @@ function parseJSONResponse(text) {
 
           const nextNonSpace = lookAhead < trimmed.length ? trimmed[lookAhead] : '';
 
-          // 如果后面跟着逗号、}、]、:，说明是字符串结束
-          if (nextNonSpace === ',' || nextNonSpace === '}' || nextNonSpace === ']' || nextNonSpace === ':') {
+          // 如果后面跟着逗号、}、]，说明是字符串结束
+          // 注意：不包括冒号，因为冒号前面应该是键名，不是值
+          if (nextNonSpace === ',' || nextNonSpace === '}' || nextNonSpace === ']') {
+            inString = false;
+            result += char;
+          } else if (nextNonSpace === '"') {
+            // 如果后面紧跟另一个引号，当前引号是字符串结束
+            // 这处理 "value"" 这种多余引号的情况
             inString = false;
             result += char;
           } else {
@@ -480,6 +489,10 @@ function parseJSONResponse(text) {
           if (prevNonSpace === ':' || prevNonSpace === ',' || prevNonSpace === '[' || prevNonSpace === '{') {
             inString = true;
             result += char;
+          } else if (prevNonSpace === '"') {
+            // 如果前面是引号，这可能是多余的引号，跳过
+            // 这处理 ""value" 这种情况
+            continue;
           } else {
             result += char;
           }
@@ -516,7 +529,7 @@ function parseJSONResponse(text) {
   }
 
   // 4. 尝试从 markdown 代码块中提取 JSON
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const codeBlockMatch = text.trim().match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     try {
       return JSON.parse(codeBlockMatch[1].trim());
@@ -526,19 +539,25 @@ function parseJSONResponse(text) {
   }
 
   // 5. 尝试提取第一个完整的 JSON 对象
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  const jsonMatch = text.trim().match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[0]);
     } catch (e) {
-      // 继续尝试
+      // 对提取的 JSON 也尝试修复中文引号
+      try {
+        const fixedExtract = jsonMatch[0].replace(/[""]/g, '\\"');
+        return JSON.parse(fixedExtract);
+      } catch (e2) {
+        // 继续尝试
+      }
     }
   }
 
   // 6. 所有方法都失败
   console.error('[JSON Parse Error] 无法解析响应为 JSON');
-  console.error('[原始响应]', trimmed.substring(0, 500));
-  throw new Error(`LLM 返回的响应不是有效的 JSON 格式。响应长度: ${trimmed.length} 字符`);
+  console.error('[原始响应]', text.trim().substring(0, 500));
+  throw new Error(`LLM 返回的响应不是有效的 JSON 格式。响应长度: ${text.trim().length} 字符`);
 }
 
 // 心情中文映射

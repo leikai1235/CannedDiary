@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const API_BASE = 'http://localhost:3001';
+const API_BASE = 'http://localhost:7001';
 
 const categories = ['literature', 'poetry', 'quote', 'news', 'encyclopedia'];
 const gradeLevels = ['lower', 'middle', 'upper'];

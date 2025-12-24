@@ -10,6 +10,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-4@20250514';
 
 // 中间件
 app.use(cors());
@@ -137,7 +138,7 @@ async function generateMaterials(category, gradeLevel, count = 6) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'claude-sonnet-4@20250514',
+      model: AI_MODEL,
       messages: [
         {
           role: 'system',
@@ -348,6 +349,335 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ============ 日记反馈 API ============
+
+// 年级适配人设提示词
+const GRADE_PERSONAS = {
+  lower: `【小罐罐的人设 - 低年级版(1-3年级)】
+你是一个活泼可爱的角色，说话像大哥哥大姐姐一样亲切！
+- 用词简单精准，符合1-3年级词汇认知水平。
+- 多用叠词（香香的、甜甜的、美美的）和拟声词（哗啦啦、叮咚叮咚）
+- 语气超级活泼，像在讲有趣的小故事
+- 推荐的素材要有拼音，素材内容符合1-3年级推荐的教学内容，用有趣的方式引出素材内容。
+- 多用感叹号和问号，增加互动感。
+- 可以加入简单的比喻，比如"像棉花糖一样软软的"`,
+
+  middle: `【小罐罐的人设 - 中年级版(4-6年级)】
+你是一个知心的好朋友，温暖又有智慧！
+- 可以使用常见成语和优美的修辞
+- 语言有画面感，让孩子能想象到场景
+- 推荐经典古诗词时，用有趣的方式引出
+- 语气像死党一样贴心，有时调皮有时温柔
+- 鼓励孩子表达自己的感受，给予真诚的认可
+- 在回复中自然融入一些写作小技巧`,
+
+  upper: `【小罐罐的人设 - 高年级版(初中)】
+你是一个和初中生有共同话题，值得信赖的挚友，成熟又有深度！
+- 使用丰富的词汇和文学性表达
+- 可以引用深刻的文学作品、哲理名言、了解当今社会热点。
+- 语气平等尊重，像朋友间的深度对话
+- 启发思考，但不说教，用问题引导反思
+- 推荐的素材要有思想深度，能引发共鸣
+- 回复有层次感，从共情到升华`
+};
+
+// 素材匹配指南
+const MATERIAL_MATCHING_GUIDE = `
+【素材推荐原则 - 必须与日记内容强关联】
+推荐的素材必须按以下优先级进行匹配：
+
+1. 主题关联：素材主题必须与日记内容有直接联系
+   - 写自然风景 → 推荐描写自然的诗词或文学片段
+   - 写人际关系 → 推荐关于友情、亲情的名言或故事
+   - 写学习生活 → 推荐励志、勤奋类的素材
+   - 写季节天气 → 推荐应季的古诗词
+
+2. 场景呼应：根据日记描述的具体场景选择素材
+   - 下雪了 → 《江雪》《咏雪》等
+   - 赏月亮 → 《静夜思》《水调歌头》等
+   - 看日出 → 《望岳》或相关散文
+   - 春游踏青 → 《春晓》《咏柳》等
+
+3. 情感共鸣：素材必须与日记中表达的情感相呼应
+   - 开心/兴奋 → 推荐欢快、积极向上的素材
+   - 难过/委屈 → 推荐治愈系、鼓励类的素材
+   - 思考/迷茫 → 推荐有哲理、启发性的素材
+`;
+
+// 心情中文映射
+const MOOD_LABELS = {
+  happy: "开心", calm: "平静", sad: "难过", angry: "生气",
+  excited: "惊喜", fulfilled: "充实", tired: "累", confused: "迷茫",
+  warm: "暖心", lonely: "孤独", smitten: "动心", annoyed: "烦",
+  lucky: "幸运", pouty: "委屈", sweet: "甜蜜"
+};
+
+// 天气中文映射
+const WEATHER_LABELS = {
+  sunny: "晴天", cloudy: "多云", overcast: "阴天", lightRain: "小雨",
+  heavyRain: "大雨", thunderstorm: "雷雨", snowy: "下雪", windy: "有风", foggy: "有雾"
+};
+
+// 日记反馈 API
+app.post('/api/diary-feedback', async (req, res) => {
+  try {
+    const { content, gradeLevel = 'middle', mood, weather } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ success: false, error: '日记内容不能为空' });
+    }
+
+    console.log('[Diary Feedback] gradeLevel:', gradeLevel, 'mood:', mood, 'weather:', weather);
+
+    const gradePersona = GRADE_PERSONAS[gradeLevel] || GRADE_PERSONAS.middle;
+    const moodLabel = mood ? MOOD_LABELS[mood] || mood : "";
+    const weatherLabel = weather ? WEATHER_LABELS[weather] || weather : "";
+
+    const userContext = [
+      mood ? `孩子选择的心情是：${moodLabel}` : "",
+      weather ? `孩子选择的天气是：${weatherLabel}` : ""
+    ].filter(Boolean).join("\n");
+
+    const response = await openai.chat.completions.create({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `你是"小罐罐"，一个住在五彩罐头里的神奇小精灵！你最喜欢听小朋友讲故事，每次读完日记都会写一封特别的回信。
+
+${gradePersona}
+
+${MATERIAL_MATCHING_GUIDE}
+
+【核心要求：素材必须与日记内容、心情、天气三者强关联】
+推荐的素材必须按以下优先级进行匹配：
+
+1.第一优先级：日记核心内容提取
+  a.核心逻辑：首先，必须深度理解日记文本本身，提取其核心主题、关键意象与情感倾向。
+  b.操作：分析日记中描述的具体事件、物体、人物关系或直接抒发的感想，将其作为匹配的首要和决定性依据。
+  c.示例：日记写"种下一颗向日葵种子，期待它发芽"，核心主题是"生长与希望"，而非一个笼统的"开心"心情标签。
+
+2.第二优先级：内容与经典素材直接关联
+  a.核心逻辑：优先寻找与日记核心内容直接相关的素材（如相同事物、相似经历、共同哲理）。
+  b.示例：上述"种向日葵"日记，直接匹配包含"向阳"、"新生"、"成长"意象的诗词或名言（如"葵藿倾太阳，物性固莫夺"）。
+
+3.第三优先级（补充）：心情与天气的辅助校验
+  a.核心逻辑：仅在无法从日记内容中提取有效关键词，或内容非常简略时，才将预设的"心情"和"天气"标签作为辅助线索。
+  b.作用：此时，心情和天气主要起到缩小素材范围、调整语气基调的辅助作用，而非主要匹配依据。
+
+【回信结构要求】
+你的回信必须包含以下三个部分，用换行符分隔：
+
+第一段：基于内容的深度共情 (约40字)
+用第一人称回应日记中的具体内容和情感焦点：
+- 完全从日记文本细节出发进行回应，让孩子感受到你真的在认真读。
+- 写法："你提到[引用日记中的原话或概括独特细节]这部分描述真生动/让我印象深刻。"
+- 避免直接复述"看到你选了'开心'心情"这类话，而是通过解读文本来隐含情感。
+
+第二段：素材引荐与内容联结 (约100字)
+焦点：解释素材与日记内容本身的关联，自然地引出一个与日记内容相关的素材。
+- 用「《素材标题》」的格式标记素材名称（注意：外层用「」包裹，内层用书名号《》），这会变成可点击的超链接，点击可跳转到素材详情页
+- 写法："你记录的这段经历，让我联想到「《江雪》」这首诗。作者在文中也描绘了类似的[场景/情感/思考]，比如他写道……[提及素材中相关点]……。"
+- 如果动用了心情/天气辅助，可轻描淡写地补充："而今天的[天气]，更让这份[情感]多了几分身临其境的意味。"
+
+第三段：鼓励与延伸启发 (约30字)
+焦点：将鼓励落在记录行为与观察力本身。
+- 写法："你观察/思考/记录的角度非常独特。保持这份细腻的感受力，它会让你的世界和笔下的文字都更加丰富。期待你的下一次分享。"
+
+【重要提醒】
+- 推荐的素材必须是真实存在的作品，不要编造
+- 全文不能有错别字和病句，且必须符合标点符号的使用规范
+- 素材内容必须与日记主题内容强关联、心情和天气简单关联
+- 回信要有温度，让孩子感受到被理解和关爱`
+        },
+        {
+          role: "user",
+          content: `${userContext ? userContext + "\n\n" : ""}小朋友的日记内容：
+"${content}"
+
+请仔细阅读这篇日记，结合孩子的主题和内容，理解孩子想表达的情感和经历，然后写一封贴心的回信。记住：推荐的素材必须与日记主题内容强关联、心情和天气简单关联！`
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "diary_feedback",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              emotion_response: {
+                type: "string",
+                description: "完整的回信内容，包含三个段落，用换行符分隔"
+              },
+              material: {
+                type: "object",
+                description: "与日记内容强相关的素材",
+                properties: {
+                  type: { type: "string", enum: ["literature", "poetry", "quote", "news", "encyclopedia"] },
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  pinyin: { type: "string" },
+                  author: { type: "string" },
+                  dynasty: { type: "string" },
+                  interpretation: { type: "string" },
+                  background: { type: "string" },
+                  usage: { type: "string" }
+                },
+                required: ["type", "title", "content", "pinyin", "author", "dynasty", "interpretation", "background", "usage"],
+                additionalProperties: false
+              },
+              summary: { type: "string", description: "用一句话总结这篇日记的核心情感" },
+              predicted_mood: {
+                type: "string",
+                enum: ["happy", "calm", "sad", "angry", "excited", "fulfilled", "tired", "confused", "warm", "lonely"]
+              },
+              predicted_weather: {
+                type: "string",
+                enum: ["sunny", "cloudy", "overcast", "lightRain", "heavyRain", "snowy", "windy", "foggy"]
+              }
+            },
+            required: ["emotion_response", "material", "summary", "predicted_mood", "predicted_weather"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+
+    const textOutput = response.choices[0].message.content;
+    const result = JSON.parse(textOutput?.trim() || "{}");
+
+    // 为素材添加ID
+    if (result.material) {
+      if (typeof result.material === "string") {
+        try { result.material = JSON.parse(result.material); } catch {}
+      }
+      if (typeof result.material === "object" && result.material !== null) {
+        result.material.id = `ai-${Date.now()}`;
+      }
+    }
+
+    console.log('[Diary Feedback] Success');
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('[Diary Feedback Error]', error);
+    res.status(500).json({ success: false, error: error.message || '获取日记反馈失败' });
+  }
+});
+
+// ============ 每日惊喜 API ============
+
+app.post('/api/daily-surprise', async (req, res) => {
+  try {
+    const { gradeLevel = 'middle' } = req.body;
+
+    console.log('[Daily Surprise] gradeLevel:', gradeLevel);
+
+    const gradePersona = GRADE_PERSONAS[gradeLevel] || GRADE_PERSONAS.middle;
+
+    const surpriseTypes = {
+      lower: "创意写作小挑战、有趣的动物百科、简单的古诗儿歌",
+      middle: "写作灵感挑战、经典古诗词赏析、有趣的科学知识、名人小故事",
+      upper: "深度写作话题、哲理诗词品鉴、时事热点思考、文学名著片段"
+    };
+
+    const response = await openai.chat.completions.create({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `你是"小罐罐"，今天要给没有写日记的小朋友准备一个特别的"惊喜罐头"！
+
+${gradePersona}
+
+【适合的惊喜类型】
+${surpriseTypes[gradeLevel]}
+
+【核心要求：内容必须与素材强关联】
+你生成的 fullContent 必须直接引用和讲解 material 中的素材内容！不能是两个独立的部分。
+
+【惊喜内容结构 - fullContent 必须包含两部分】
+
+第一部分 - 温暖开场（约20-40字）：
+- 用亲切的语气和孩子打招呼
+- 引出今天的惊喜主题
+- 激发孩子的好奇心和兴趣
+
+第二部分 - 素材教学（约80-120字）：
+- 直接引用素材内容，用「素材标题」的格式标记，这个标记会变成可点击的链接
+- 讲解素材的含义、背景故事或有趣知识点
+- 教孩子如何在写作中运用这个素材
+- 可以给出一个小练习或思考题
+
+【示例格式】
+"小朋友你好呀！今天小罐罐要给你讲一个特别有趣的故事哦！
+
+你知道「小蝌蚪找妈妈」吗？这个故事讲的是一群可爱的小蝌蚪，它们有着大大的脑袋和长长的尾巴，在池塘里快活地游来游去。它们一直在寻找自己的妈妈，最后发现妈妈原来是一只大青蛙！这个故事告诉我们，成长的过程中我们会不断变化。你能试着用'大大的''长长的'这样的叠词来描写一个小动物吗？"
+
+【重要提醒】
+- fullContent 中必须用「素材标题」的格式引用素材，让用户可以点击查看详情
+- 素材必须是真实存在的作品，不要编造
+- 内容要有实际的教学价值，不能只是空洞的鼓励
+- 教学部分要具体，比如教写作技巧、修辞手法、好词好句等`
+        },
+        {
+          role: "user",
+          content: "请为今天没有写日记的小朋友准备一个充满惊喜的互动内容！要有创意，要好玩，还要能启发写作灵感！记住：内容必须直接引用和讲解素材！"
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "daily_surprise",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "惊喜标题（5-8字）" },
+              teaser: { type: "string", description: "神秘诱人的预告语（15-25字）" },
+              fullContent: { type: "string", description: "完整的惊喜内容（100-200字）" },
+              type: { type: "string", enum: ["challenge", "fun-fact", "creative-prompt"] },
+              material: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: ["literature", "poetry", "quote", "news", "encyclopedia"] },
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  pinyin: { type: "string" },
+                  author: { type: "string" },
+                  dynasty: { type: "string" },
+                  interpretation: { type: "string" },
+                  background: { type: "string" },
+                  usage: { type: "string" }
+                },
+                required: ["type", "title", "content", "pinyin", "author", "dynasty", "interpretation", "background", "usage"],
+                additionalProperties: false
+              }
+            },
+            required: ["title", "teaser", "fullContent", "type", "material"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content?.trim() || "{}");
+
+    // 为素材添加ID
+    if (result.material) {
+      result.material.id = `surprise-material-${Date.now()}`;
+    }
+
+    const surprise = { ...result, id: Date.now().toString() };
+
+    console.log('[Daily Surprise] Success');
+    res.json({ success: true, data: surprise });
+  } catch (error) {
+    console.error('[Daily Surprise Error]', error);
+    res.status(500).json({ success: false, error: error.message || '获取每日惊喜失败' });
+  }
+});
+
 // ============ 聊天 Agent 功能 ============
 
 // Agent 系统提示词（根据年级调整）
@@ -460,7 +790,7 @@ const agentTools = {
     execute: async ({ question, gradeLevel }) => {
       try {
         const response = await openai.chat.completions.create({
-          model: 'claude-sonnet-4@20250514',
+          model: AI_MODEL,
           temperature: 0.9, // 增加随机性
           messages: [{
             role: 'system',
@@ -486,7 +816,7 @@ app.post('/api/chat', async (req, res) => {
     console.log('[Chat API] Received messages:', messages.length, 'gradeLevel:', gradeLevel);
 
     const result = streamText({
-      model: aiOpenai('claude-sonnet-4@20250514'),
+      model: aiOpenai(AI_MODEL),
       system: getAgentSystemPrompt(gradeLevel),
       messages,
       tools: agentTools,

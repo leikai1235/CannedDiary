@@ -17,7 +17,7 @@ import encyclopediaLower from '../../data/materials/encyclopedia-lower.json';
 import encyclopediaMiddle from '../../data/materials/encyclopedia-middle.json';
 import encyclopediaUpper from '../../data/materials/encyclopedia-upper.json';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:7001';
 const CACHE_PREFIX = 'materials_cache_';
 const CACHE_EXPIRY = 5 * 60 * 1000; // 5分钟过期
 

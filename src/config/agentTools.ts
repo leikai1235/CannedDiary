@@ -170,4 +170,4 @@ export const QUICK_PROMPTS = [
 ];
 
 // API 配置
-export const CHAT_API_URL = 'http://localhost:3001/api/chat';
+export const CHAT_API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:7001') + '/api/chat';

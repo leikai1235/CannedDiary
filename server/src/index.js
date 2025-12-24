@@ -138,10 +138,12 @@ async function generateMaterials(category, gradeLevel, count = 6) {
   const categoryPrompt = CATEGORY_PROMPTS[category] || CATEGORY_PROMPTS.literature;
   const categoryName = CATEGORY_NAMES[category] || '文学';
 
-  // JSON 格式要求（用于不支持 response_format 的 LLM）
-  const jsonFormatHint = `
+  // JSON 格式要求（用于不支持 response_format 的 LLM）- 放在 system prompt 最开头
+  const materialsJsonSystemPrefix = USE_JSON_SCHEMA ? '' : `【最重要的规则 - 必须严格遵守】
+你是一个 JSON API，只能返回 JSON 格式的响应，绝对不能返回任何其他格式的文本。
+你的每一次回复都必须是一个有效的 JSON 对象，不能有任何额外的文字、问候语或解释。
 
-【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+你必须返回的 JSON 格式：
 {
   "materials": [
     {
@@ -156,7 +158,15 @@ async function generateMaterials(category, gradeLevel, count = 6) {
     }
   ]
 }
-注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
+【格式注意事项】
+- 只返回 JSON，不要有任何开场白或结束语
+- 字符串内如需使用双引号，请用中文引号「」或『』代替
+- 确保 JSON 格式正确，所有字段都必须存在
+
+---
+
+`;
 
   try {
     const requestParams = {
@@ -164,7 +174,7 @@ async function generateMaterials(category, gradeLevel, count = 6) {
       messages: [
         {
           role: 'system',
-          content: `你是一个专业的语文教育专家。
+          content: `${materialsJsonSystemPrefix}你是一个专业的语文教育专家。
 
 ${gradePrompt}
 
@@ -189,7 +199,7 @@ ${gradePrompt}
 - dynasty: 朝代（如适用，诗词类必须有）
 - interpretation: 现代译文/释义（通俗易懂）
 - background: 创作背景/来源故事（有趣生动）
-- usage: 写作应用/用法提示（实用具体）${USE_JSON_SCHEMA ? '' : jsonFormatHint}`
+- usage: 写作应用/用法提示（实用具体）${USE_JSON_SCHEMA ? '' : '\n\n【再次提醒】只返回 JSON 格式，不要有任何其他文字。直接以 { 开头。'}`
         }
       ]
     };
@@ -622,14 +632,16 @@ app.post('/api/diary-feedback', async (req, res) => {
       weather ? `孩子选择的天气是：${weatherLabel}` : ""
     ].filter(Boolean).join("\n");
 
-    // JSON 格式要求（用于不支持 response_format 的 LLM）
-    const diaryJsonHint = `
+    // JSON 格式要求（用于不支持 response_format 的 LLM）- 放在 system prompt 最开头
+    const diaryJsonSystemPrefix = USE_JSON_SCHEMA ? '' : `【最重要的规则 - 必须严格遵守】
+你是一个 JSON API，只能返回 JSON 格式的响应，绝对不能返回任何其他格式的文本。
+你的每一次回复都必须是一个有效的 JSON 对象，不能有任何额外的文字、问候语或解释。
 
-【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+你必须返回的 JSON 格式：
 {
   "emotion_response": "回信内容（三段，用\\n分隔）",
   "material": {
-    "type": "literature/poetry/quote/news/encyclopedia",
+    "type": "literature 或 poetry 或 quote 或 news 或 encyclopedia",
     "title": "素材标题",
     "content": "素材内容",
     "pinyin": "拼音",
@@ -640,17 +652,25 @@ app.post('/api/diary-feedback', async (req, res) => {
     "usage": "用法"
   },
   "summary": "一句话总结",
-  "predicted_mood": "happy/calm/sad/angry/excited/fulfilled/tired/confused/warm/lonely",
-  "predicted_weather": "sunny/cloudy/overcast/lightRain/heavyRain/snowy/windy/foggy"
+  "predicted_mood": "happy 或 calm 或 sad 或其他心情",
+  "predicted_weather": "sunny 或 cloudy 或其他天气"
 }
-注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
+【格式注意事项】
+- 只返回 JSON，不要有任何开场白或结束语
+- 字符串内如需使用双引号，请用中文引号「」或『』代替
+- 确保 JSON 格式正确，所有字段都必须存在
+
+---
+
+`;
 
     const diaryRequestParams = {
       model: AI_MODEL,
       messages: [
         {
           role: "system",
-          content: `你是"小罐罐"，一个住在五彩罐头里的神奇小精灵！你最喜欢听小朋友讲故事，每次读完日记都会写一封特别的回信。
+          content: `${diaryJsonSystemPrefix}你是"小罐罐"，一个住在五彩罐头里的神奇小精灵！你最喜欢听小朋友讲故事，每次读完日记都会写一封特别的回信。
 
 ${gradePersona}
 
@@ -702,7 +722,7 @@ ${MATERIAL_MATCHING_GUIDE}
           content: `${userContext ? userContext + "\n\n" : ""}小朋友的日记内容：
 "${content}"
 
-请仔细阅读这篇日记，结合孩子的主题和内容，理解孩子想表达的情感和经历，然后写一封贴心的回信。记住：推荐的素材必须与日记主题内容强关联、心情和天气简单关联！${USE_JSON_SCHEMA ? '' : diaryJsonHint}`
+请仔细阅读这篇日记，结合孩子的主题和内容，理解孩子想表达的情感和经历，然后写一封贴心的回信。记住：推荐的素材必须与日记主题内容强关联、心情和天气简单关联！${USE_JSON_SCHEMA ? '' : '\n\n【再次提醒】只返回 JSON 格式，不要有任何其他文字。直接以 { 开头。'}`
         }
       ]
     };
@@ -798,17 +818,19 @@ app.post('/api/daily-surprise', async (req, res) => {
       upper: "深度写作话题、哲理诗词品鉴、时事热点思考、文学名著片段"
     };
 
-    // JSON 格式要求（用于不支持 response_format 的 LLM）
-    const surpriseJsonHint = `
+    // JSON 格式要求（用于不支持 response_format 的 LLM）- 放在 system prompt 最开头
+    const surpriseJsonSystemPrefix = USE_JSON_SCHEMA ? '' : `【最重要的规则 - 必须严格遵守】
+你是一个 JSON API，只能返回 JSON 格式的响应，绝对不能返回任何其他格式的文本。
+你的每一次回复都必须是一个有效的 JSON 对象，不能有任何额外的文字、问候语或解释。
 
-【重要】请严格按以下 JSON 格式返回，不要有任何其他文字：
+你必须返回的 JSON 格式：
 {
   "title": "惊喜标题（5-8字）",
   "teaser": "神秘诱人的预告语（15-25字）",
   "fullContent": "完整的惊喜内容（100-200字）",
-  "type": "challenge/fun-fact/creative-prompt",
+  "type": "challenge 或 fun-fact 或 creative-prompt",
   "material": {
-    "type": "literature/poetry/quote/news/encyclopedia",
+    "type": "literature 或 poetry 或 quote 或 news 或 encyclopedia",
     "title": "素材标题",
     "content": "素材内容",
     "pinyin": "拼音",
@@ -819,14 +841,22 @@ app.post('/api/daily-surprise', async (req, res) => {
     "usage": "用法"
   }
 }
-注意：字符串内如需使用双引号，请用中文引号「」或『』代替。`;
+
+【格式注意事项】
+- 只返回 JSON，不要有任何开场白或结束语
+- 字符串内如需使用双引号，请用中文引号「」或『』代替
+- 确保 JSON 格式正确，所有字段都必须存在
+
+---
+
+`;
 
     const surpriseRequestParams = {
       model: AI_MODEL,
       messages: [
         {
           role: "system",
-          content: `你是"小罐罐"，今天要给没有写日记的小朋友准备一个特别的"惊喜罐头"！
+          content: `${surpriseJsonSystemPrefix}你是"小罐罐"，今天要给没有写日记的小朋友准备一个特别的"惊喜罐头"！
 
 ${gradePersona}
 
@@ -862,7 +892,7 @@ ${surpriseTypes[gradeLevel]}
         },
         {
           role: "user",
-          content: `请为今天没有写日记的小朋友准备一个充满惊喜的互动内容！要有创意，要好玩，还要能启发写作灵感！记住：内容必须直接引用和讲解素材！${USE_JSON_SCHEMA ? '' : surpriseJsonHint}`
+          content: `请为今天没有写日记的小朋友准备一个充满惊喜的互动内容！要有创意，要好玩，还要能启发写作灵感！记住：内容必须直接引用和讲解素材！${USE_JSON_SCHEMA ? '' : '\n\n【再次提醒】只返回 JSON 格式，不要有任何其他文字。直接以 { 开头。'}`
         }
       ]
     };

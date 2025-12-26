@@ -19,6 +19,7 @@ export { ChevronDownIcon } from './ChevronDownIcon';
 export { BookIcon } from './BookIcon';
 export { ContinueChatIcon } from './ContinueChatIcon';
 export { default as LightbulbIcon } from './LightbulbIcon';
+export { SpeakerIcon, SpeakerMiniIcon } from './SpeakerIcon';
 
 // 分类图标
 export { LiteratureIcon } from './categories/LiteratureIcon';

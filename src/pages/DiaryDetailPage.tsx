@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MATERIAL_CATEGORIES, Icons } from "../constants";
 import { LightbulbIcon } from "../components/icons";
+import { SpeakerButton } from "../components/shared/SpeakerButton";
 import cannedIpUrl from "../assets/canned-ip.svg";
 import { useDiary } from "../contexts/DiaryContext";
 import { Material, normalizeCategory } from "../types";
@@ -144,12 +145,33 @@ const DiaryDetailPage: React.FC = () => {
             <div className="absolute -top-10 right-8">
               <img src={cannedIpUrl} width={64} height={73} alt="" />
             </div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-1.5 h-4 bg-[#58CC02] rounded-full"></span>
-              <h3 className="text-[11px] font-black text-[#58CC02] uppercase tracking-widest">
-                惊喜加料
-              </h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-[#58CC02] rounded-full"></span>
+                <h3 className="text-[11px] font-black text-[#58CC02] uppercase tracking-widest">
+                  惊喜加料
+                </h3>
+              </div>
+              {/* 语音播放按钮 */}
+              {diary.feedback?.emotion_response && (
+                <SpeakerButton
+                  text={diary.feedback.emotion_response}
+                  contentType="diary_feedback"
+                  size={24}
+                />
+              )}
             </div>
+            {/* AI 生成的配图 */}
+            {diary.feedback?.generatedImage && (
+              <div className="mb-6 rounded-2xl overflow-hidden shadow-lg border-2 border-[#E8E4D8]">
+                <img
+                  src={diary.feedback.generatedImage}
+                  alt="AI 生成的配图"
+                  className="w-full h-auto object-cover"
+                  style={{ maxHeight: '200px' }}
+                />
+              </div>
+            )}
             <div className="text-justify">
               {diary.feedback
                 ? parseResponse(

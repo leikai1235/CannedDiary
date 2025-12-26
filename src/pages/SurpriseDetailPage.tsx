@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icons } from "../constants";
+import { SpeakerButton } from "../components/shared/SpeakerButton";
 import cannedIpUrl from "../assets/canned-ip.svg";
 import { useDiary } from "../contexts/DiaryContext";
 
@@ -102,13 +103,32 @@ const SurpriseDetailPage: React.FC = () => {
               <img src={cannedIpUrl} width={80} height={91} alt="" />
             </div>
             <div className="text-center pt-4">
-              <span className="text-[10px] font-black text-[#FFC800] bg-[#FFF8E1] px-4 py-1 rounded-full uppercase tracking-widest mb-2 inline-block">
-                DAILY SURPRISE
-              </span>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-[10px] font-black text-[#FFC800] bg-[#FFF8E1] px-4 py-1 rounded-full uppercase tracking-widest">
+                  DAILY SURPRISE
+                </span>
+                {/* 语音播放按钮 */}
+                <SpeakerButton
+                  text={surprise.fullContent}
+                  contentType="surprise"
+                  size={22}
+                />
+              </div>
               <h3 className="text-2xl font-extrabold text-gray-800">
                 {surprise.title}
               </h3>
             </div>
+            {/* AI 生成的配图 */}
+            {surprise.generatedImage && (
+              <div className="rounded-2xl overflow-hidden shadow-lg border-2 border-[#FFF8E1]">
+                <img
+                  src={surprise.generatedImage}
+                  alt="AI 生成的配图"
+                  className="w-full h-auto object-cover"
+                  style={{ maxHeight: '200px' }}
+                />
+              </div>
+            )}
             <div className="text-[16px] text-gray-600 font-bold leading-relaxed text-center whitespace-pre-line">
               {renderContentWithMaterialLink(
                 surprise.fullContent,

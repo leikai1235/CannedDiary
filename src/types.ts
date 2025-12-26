@@ -68,6 +68,7 @@ export interface SurpriseContent {
   fullContent: string;
   type: 'challenge' | 'fun-fact' | 'creative-prompt';
   material?: Material;
+  generatedImage?: string; // AI 生成的配图 URL
 }
 
 export interface AIFeedback {
@@ -76,6 +77,7 @@ export interface AIFeedback {
   summary: string;
   predicted_mood: Mood;
   predicted_weather: Weather;
+  generatedImage?: string; // AI 生成的配图 URL
 }
 
 export interface DiaryEntry {

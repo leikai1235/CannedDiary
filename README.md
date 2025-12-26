@@ -1,18 +1,77 @@
 # 罐头日记 (Canned Diary)
 
-一款专为中小学生设计的 AI 驱动日记应用，整合日记记录、语文素材库、AI 对话等功能，激发孩子的写作灵感。
+一款面向中小学生的 AI 陪伴写作应用。
 
-## 项目简介
+基于 **MCP 兼容的 Tool-Augmented Agent** 架构，我们让 AI 不只是"能聊天"，而是真正"能记住、能思考、能行动"。
 
-罐头日记通过 AI 能力为孩子提供智能的日记反馈和写作素材推荐，帮助孩子养成写日记的好习惯，同时扩展语文知识面。
+## 核心技术亮点
 
-### 核心特性
+| 特性 | 说明 |
+|------|------|
+| 🔧 **MCP 工具协议** | 6 大工具模块（记忆/日记/知识/推理），即插即用，可扩展 |
+| 🧠 **长期记忆系统** | 持久化用户画像，跨会话个性化，越聊越懂你 |
+| 🤖 **多 Agent 协同** | Chat / Diary / Surprise 三大专家 Agent，各司其职 |
+| 📐 **结构化输出** | JSON Schema 强约束，100% 可解析，类型安全 |
+| ⚡ **流式工具执行** | 实时推理过程可见，多步工具链，< 500ms 首字响应 |
+| 🔌 **模型无关设计** | LLM Gateway 抽象，支持主流大模型一键切换 |
+
+## 产品特性
 
 - **智能日记反馈** - AI 根据日记内容生成个性化回信，给予情感回应和写作建议
 - **分级素材库** - 5 大分类素材（文学常识、诗词成语、名人名言、热点时事、人文百科），按年级分层
 - **AI 对话助手** - 与"小罐罐"实时对话，支持搜索日记、查询素材、解答疑问
 - **惊喜罐头** - 未写日记的日期可打开惊喜，获取写作挑战或知识趣味内容
 - **连续打卡** - 记录连续写日记天数，培养写作习惯
+
+## 技术架构
+
+### Tool-Augmented Agent
+
+```
+用户输入 → Agent 思考 → 选择工具 → 执行动作 → 整合结果 → 生成回复
+```
+
+Agent 可在单轮对话中进行多步推理（Multi-step Reasoning），自主决定何时调用哪个工具，实现 **ReAct (Reasoning + Acting)** 范式。
+
+### MCP 兼容工具链
+
+采用标准化的 Tool Schema 定义，Agent 可动态发现和调用工具：
+
+| 工具类型 | 工具名称 | 功能 |
+|---------|---------|------|
+| 🧠 Memory Tools | `saveMemory` | 保存用户偏好、习惯、事件、情绪 |
+| 🧠 Memory Tools | `getMemories` | 检索历史记忆，个性化回复 |
+| 📖 Diary Tools | `searchDiaries` | 搜索历史日记 |
+| 📖 Diary Tools | `getDiaryDetail` | 获取日记详情 |
+| 📚 Knowledge Tools | `getMaterial` | 获取诗词、名言、百科素材 |
+| 💡 Reasoning Tools | `explainConcept` | 趣味讲解知识概念 |
+
+### 多 Agent 协同
+
+| Agent | 职责 | 工具权限 |
+|-------|------|---------|
+| 💬 Chat Agent | 实时对话陪伴 | Memory + Knowledge + Diary |
+| 📝 Diary Agent | 日记分析反馈 | Semantic Matching + Material Retrieval |
+| 🎁 Surprise Agent | 创意内容生成 | Knowledge + Creative Prompt |
+
+### 长期记忆系统
+
+突破传统 AI"金鱼记忆"限制，实现 Persistent Memory Layer：
+
+| 记忆类型 | 说明 | 示例 |
+|---------|------|------|
+| Preference | 用户偏好画像 | 喜欢恐龙、讨厌青椒 |
+| Habit | 行为习惯模式 | 每天放学后写日记 |
+| Event | 重要事件时间线 | 上周参加了运动会 |
+| Emotion | 情绪状态追踪 | 最近因考试有点焦虑 |
+
+### 分级自适应系统
+
+根据用户年级动态调整 AI 人格、语言风格、知识深度：
+
+- **低年级 (1-3年级)** - 活泼可爱，简单词汇，多用叠词拟声词
+- **中年级 (4-6年级)** - 温暖智慧，成语修辞，像知心朋友
+- **高年级 (初中)** - 平等深刻，文学哲理，启发思考
 
 ## 技术栈
 
@@ -25,8 +84,10 @@
 
 ### 后端
 - Node.js + Express
-- LiteLLM 代理（Claude Sonnet 4）
-- Zod 数据验证
+- LLM Gateway (LiteLLM)
+- Vercel AI SDK (streamText + tool)
+- Zod Schema 验证
+- JSON Schema 结构化输出
 
 ## 快速开始
 
@@ -78,7 +139,23 @@ child/
 │   ├── hooks/             # 自定义 Hooks
 │   └── types.ts           # 类型定义
 ├── server/                 # 后端服务
-│   └── src/index.js       # Express 服务器
+│   └── src/
+│       ├── index.js       # Express 入口
+│       ├── config/        # 配置模块
+│       │   ├── prompts.js # 提示词配置（Agent System Prompt）
+│       │   └── constants.js # 常量定义
+│       ├── routes/        # API 路由
+│       │   ├── materials.js  # 素材接口
+│       │   ├── checkin.js    # 签到接口
+│       │   ├── diary.js      # Diary Agent
+│       │   ├── surprise.js   # Surprise Agent
+│       │   ├── chat.js       # Chat Agent + Tools
+│       │   └── health.js     # 健康检查
+│       ├── services/      # 业务服务
+│       │   ├── llm.js     # LLM Gateway
+│       │   └── cache.js   # 缓存服务
+│       └── utils/         # 工具函数
+│           └── parseJSON.js # JSON 解析
 ├── data/                   # 静态素材数据
 │   └── materials/         # 分级素材 JSON
 └── doc/                    # 项目文档
